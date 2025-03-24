@@ -84,6 +84,7 @@ async def menu_handler(update: Update, context: CallbackContext) -> None:
 # Fungsi untuk menangani input dari pengguna
 async def handle_input(update: Update, context: CallbackContext) -> None:
     pesan = update.message.text
+    print(f"Pesan diterima: {pesan}")  # Debugging untuk melihat apakah bot menerima pesan
 
     # Jika user dalam mode pilih bulan hafalan
     if context.user_data.get("mode") == "pilih_bulan":
@@ -171,7 +172,8 @@ async def rekap_otomatis(update: Update, context: CallbackContext, bulan, nama_s
 def main():
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT, handle_input))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_handler))  # Menangani tombol menu
+    app.add_handler(MessageHandler(filters.TEXT, handle_input))  # Menangani input teks biasa
     print("Bot berjalan...")
     app.run_polling()
 
