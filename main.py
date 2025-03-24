@@ -20,7 +20,7 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS santri (
                     pekan INTEGER,
                     bulan TEXT,
                     hafalan_baru INTEGER,
-                    total_juz REAL)''')
+                    total_juz INTEGER)''')
 conn.commit()
 
 # Fungsi menjaga bot tetap berjalan
@@ -30,6 +30,16 @@ def run():
 def keep_alive():
     t = Thread(target=run)
     t.start()
+
+# Fungsi untuk mendapatkan bulan dan tahun saat ini
+def get_bulan_tahun():
+    return datetime.datetime.now().strftime("%B %Y")
+
+# Fungsi untuk mendapatkan pekan otomatis
+def get_pekan(nama_santri, bulan):
+    cursor.execute("SELECT MAX(pekan) FROM santri WHERE nama=? AND bulan=?", (nama_santri, bulan))
+    result = cursor.fetchone()[0]
+    return (result + 1) if result else 1
 
 # Fungsi untuk menampilkan menu utama
 async def show_menu(update: Update, context: CallbackContext) -> None:
@@ -53,6 +63,9 @@ async def menu_handler(update: Update, context: CallbackContext) -> None:
     if pesan == "➕ Tambah Hafalan":
         await update.message.reply_text("Kirim data dengan format:\nTambahHafalan; Nama Santri; Hafalan Baru (halaman); Total Hafalan (juz)")
 
+    elif pesan == "✏️ Edit Hafalan":
+        await update.message.reply_text("Kirim data dengan format:\nEditHafalan; Nama Santri; Pekan; Hafalan Baru (halaman); Total Hafalan (juz)")
+
     elif pesan == "📊 Lihat Data Santri":
         await update.message.reply_text("Silakan masukkan nama santri:")
         context.user_data["mode"] = "lihat_santri"
@@ -65,67 +78,62 @@ async def menu_handler(update: Update, context: CallbackContext) -> None:
         await daftar_santri(update, context)
 
     elif pesan == "🔄 Rekap Otomatis":
-        await update.message.reply_text("🔄 Setiap laporan baru akan disimpan otomatis sesuai pekan, dan pekan akan reset jika masuk bulan baru.")
-
-# Fungsi untuk menambah hafalan santri
-async def tambah_hafalan(update: Update, context: CallbackContext, nama, hafalan_baru, total_juz):
-    sekarang = datetime.datetime.now()
-    bulan_ini = sekarang.strftime("%B %Y")
-
-    # Cek pekan terakhir dari bulan ini untuk santri yang sama
-    cursor.execute("SELECT MAX(pekan) FROM santri WHERE nama=? AND bulan=?", (nama, bulan_ini))
-    hasil = cursor.fetchone()
-    pekan_sekarang = hasil[0] + 1 if hasil[0] else 1
-
-    # Simpan data hafalan baru
-    cursor.execute("INSERT INTO santri (nama, pekan, bulan, hafalan_baru, total_juz) VALUES (?, ?, ?, ?, ?)",
-                   (nama, pekan_sekarang, bulan_ini, hafalan_baru, total_juz))
-    conn.commit()
-
-    await update.message.reply_text(f"✅ Hafalan berhasil ditambahkan:\n👤 {nama}\n📅 Pekan {pekan_sekarang}: {hafalan_baru} halaman\n📚 Total Hafalan: {total_juz} juz")
-
-    # Jika sudah pekan ke-4, buat rekap otomatis
-    if pekan_sekarang == 4:
-        await rekap_bulanan(update, nama, bulan_ini)
-
-# Fungsi untuk merekap hafalan bulanan
-async def rekap_bulanan(update: Update, nama, bulan):
-    cursor.execute("SELECT pekan, hafalan_baru FROM santri WHERE nama=? AND bulan=?", (nama, bulan))
-    hasil = cursor.fetchall()
-
-    if hasil:
-        total_hafalan_baru = sum(row[1] for row in hasil)
-        cursor.execute("SELECT total_juz FROM santri WHERE nama=? ORDER BY id DESC LIMIT 1", (nama,))
-        total_juz = cursor.fetchone()[0]
-
-        rekap = f"📅 *Rekap Hafalan Bulan {bulan}*\n👤 *Nama:* {nama}\n"
-        for row in hasil:
-            rekap += f"\nPekan {row[0]}: {row[1]} halaman"
-        
-        rekap += f"\n\n📖 *Total Hafalan Baru:* {total_hafalan_baru} halaman"
-        rekap += f"\n📚 *Total Hafalan Keseluruhan:* {int(total_juz) if total_juz.is_integer() else total_juz} Juz"
-
-        await update.message.reply_text(rekap, parse_mode="Markdown")
+        bulan_sekarang = get_bulan_tahun()
+        await rekap_otomatis(update, context, bulan_sekarang)
 
 # Fungsi untuk menangani input dari pengguna
 async def handle_input(update: Update, context: CallbackContext) -> None:
     pesan = update.message.text
 
-    # Menangani format tambah hafalan
+    # Jika user dalam mode pilih bulan hafalan
+    if context.user_data.get("mode") == "pilih_bulan":
+        context.user_data["bulan_hafalan"] = pesan
+        await update.message.reply_text("Masukkan nama santri yang ingin Anda lihat hafalannya:")
+        context.user_data["mode"] = "pilih_santri"
+        return
+
+    # Jika user sudah memilih bulan, minta nama santri
+    if context.user_data.get("mode") == "pilih_santri":
+        bulan = context.user_data.get("bulan_hafalan", "")
+        nama_santri = pesan
+
+        cursor.execute("SELECT pekan, hafalan_baru, total_juz FROM santri WHERE nama=? AND bulan=?", (nama_santri, bulan))
+        hasil = cursor.fetchall()
+
+        if hasil:
+            data_hafalan = "\n".join([f"Pekan {row[0]}: {row[1]} halaman, Total: {row[2]} juz" for row in hasil])
+            await update.message.reply_text(f"📅 Hafalan {nama_santri} di {bulan}:\n\n{data_hafalan}")
+        else:
+            await update.message.reply_text(f"⚠️ Tidak ada data hafalan untuk {nama_santri} di bulan {bulan}.")
+
+        context.user_data.clear()
+        return
+
+    # Jika user memasukkan data tambah hafalan
     if pesan.startswith("TambahHafalan;"):
         try:
             _, nama, hafalan_baru, total_juz = pesan.split(";")
             nama = nama.strip()
             hafalan_baru = int(hafalan_baru.strip())
-            total_juz = float(total_juz.strip())
+            total_juz = int(total_juz.strip())
 
-            await tambah_hafalan(update, context, nama, hafalan_baru, total_juz)
+            bulan = get_bulan_tahun()
+            pekan = get_pekan(nama, bulan)
 
-        except ValueError:
-            await update.message.reply_text("⚠️ Format salah! Gunakan format:\nTambahHafalan; Nama Santri; Hafalan Baru (halaman); Total Hafalan (juz)")
-        return
+            cursor.execute("INSERT INTO santri (nama, pekan, bulan, hafalan_baru, total_juz) VALUES (?, ?, ?, ?, ?)",
+                           (nama, pekan, bulan, hafalan_baru, total_juz))
+            conn.commit()
 
-# Fungsi untuk menampilkan daftar santri yang sudah memiliki data hafalan
+            await update.message.reply_text(f"✅ Data hafalan pekan {pekan} untuk {nama} telah disimpan.")
+
+            if pekan == 4:
+                await rekap_otomatis(update, context, bulan, nama)
+
+        except Exception as e:
+            await update.message.reply_text(f"⚠️ Format salah! Gunakan format:\nTambahHafalan; Nama; Halaman; Juz")
+            print(e)
+
+# Fungsi untuk menampilkan daftar santri
 async def daftar_santri(update: Update, context: CallbackContext) -> None:
     cursor.execute("SELECT DISTINCT nama FROM santri ORDER BY nama")
     hasil = cursor.fetchall()
@@ -137,18 +145,33 @@ async def daftar_santri(update: Update, context: CallbackContext) -> None:
     daftar = "\n".join(f"👤 {row[0]}" for row in hasil)
     await update.message.reply_text(f"📜 Daftar Santri yang Tersimpan:\n\n{daftar}")
 
-# Fungsi utama menjalankan bot
-def main():
-    if not TOKEN:
-        print("Error: Harap atur TELEGRAM_TOKEN di environment variable")
+# Fungsi untuk merekap hafalan otomatis di akhir bulan
+async def rekap_otomatis(update: Update, context: CallbackContext, bulan, nama_santri=None):
+    if nama_santri:
+        cursor.execute("SELECT SUM(hafalan_baru), MAX(total_juz) FROM santri WHERE nama=? AND bulan=?", (nama_santri, bulan))
+    else:
+        cursor.execute("SELECT nama, SUM(hafalan_baru), MAX(total_juz) FROM santri WHERE bulan=? GROUP BY nama", (bulan,))
+
+    hasil = cursor.fetchall()
+
+    if not hasil:
         return
 
+    pesan = f"📅 Rekap Hafalan Bulan {bulan}\n"
+    for row in hasil:
+        nama = row[0]
+        total_hafalan = row[1]
+        total_juz = row[2]
+
+        pesan += f"\n👤 Nama: {nama}\n📖 Total Hafalan Baru: {total_hafalan} halaman\n📚 Total Hafalan Keseluruhan: {total_juz} Juz\n"
+
+    await update.message.reply_text(pesan)
+
+# Fungsi utama menjalankan bot
+def main():
     app = Application.builder().token(TOKEN).build()
-
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & filters.Regex("^(➕ Tambah Hafalan|📊 Lihat Data Santri|📅 Pilih Bulan Hafalan|📜 Daftar Santri|🔄 Rekap Otomatis)$"), menu_handler))
     app.add_handler(MessageHandler(filters.TEXT, handle_input))
-
     print("Bot berjalan...")
     app.run_polling()
 
