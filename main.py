@@ -35,7 +35,7 @@ def keep_alive():
 async def show_menu(update: Update, context: CallbackContext) -> None:
     keyboard = [
         ["➕ Tambah Hafalan", "✏️ Edit Hafalan"],
-        ["📊 Lihat Data Santri", "📅 Hafalan Bulan Lalu"],
+        ["📊 Lihat Data Santri", "📅 Pilih Bulan Hafalan"],
         ["📜 Daftar Santri", "🔄 Rekap Otomatis"]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -54,19 +54,8 @@ async def menu_handler(update: Update, context: CallbackContext) -> None:
     elif pesan == "📊 Lihat Data Santri":
         await update.message.reply_text("Ketik nama santri untuk melihat data hafalannya.")
 
-    elif pesan == "📅 Hafalan Bulan Lalu":
-        bulan_lalu = (datetime.datetime.now().replace(day=1) - datetime.timedelta(days=1)).strftime("%B %Y")
-        cursor.execute("SELECT nama, pekan, hafalan_baru, total_juz FROM santri WHERE bulan=? ORDER BY pekan", (bulan_lalu,))
-        hasil = cursor.fetchall()
-
-        if not hasil:
-            await update.message.reply_text(f"⚠️ Tidak ada data hafalan pada {bulan_lalu}.")
-        else:
-            pesan = f"📅 Data hafalan bulan {bulan_lalu}:\n"
-            for nama, pekan, hafalan_baru, total_juz in hasil:
-                total_juz_str = int(total_juz) if total_juz.is_integer() else total_juz
-                pesan += f"\n👤 {nama} - Pekan {pekan}\n📖 Hafalan Baru: {hafalan_baru} Halaman\n📚 Total Hafalan: {total_juz_str} Juz\n"
-            await update.message.reply_text(pesan)
+    elif pesan == "📅 Pilih Bulan Hafalan":
+        await update.message.reply_text("Ketik nama bulan dan tahun (misal: Januari 2025) untuk melihat data hafalan.")
 
     elif pesan == "📜 Daftar Santri":
         await daftar_santri(update, context)
@@ -85,6 +74,24 @@ async def daftar_santri(update: Update, context: CallbackContext) -> None:
 
     daftar = "\n".join(f"👤 {row[0]}" for row in hasil)
     await update.message.reply_text(f"📜 Daftar Santri yang Tersimpan:\n\n{daftar}")
+
+# Fungsi untuk melihat hafalan berdasarkan bulan tertentu
+async def lihat_hafalan_bulan(update: Update, context: CallbackContext) -> None:
+    bulan_dicari = update.message.text.strip()
+
+    cursor.execute("SELECT nama, pekan, hafalan_baru, total_juz FROM santri WHERE bulan=? ORDER BY pekan", (bulan_dicari,))
+    hasil = cursor.fetchall()
+
+    if not hasil:
+        await update.message.reply_text(f"⚠️ Tidak ada data hafalan pada {bulan_dicari}.")
+        return
+
+    pesan = f"📅 Data hafalan bulan {bulan_dicari}:\n"
+    for nama, pekan, hafalan_baru, total_juz in hasil:
+        total_juz_str = int(total_juz) if total_juz.is_integer() else total_juz
+        pesan += f"\n👤 {nama} - Pekan {pekan}\n📖 Hafalan Baru: {hafalan_baru} Halaman\n📚 Total Hafalan: {total_juz_str} Juz\n"
+
+    await update.message.reply_text(pesan)
 
 # Fungsi untuk menambah hafalan
 async def tambah_hafalan(update: Update, context: CallbackContext) -> None:
@@ -149,11 +156,6 @@ async def lihat_santri(update: Update, context: CallbackContext) -> None:
 
     await update.message.reply_text(pesan)
 
-# Fungsi untuk menangani perintah /start
-async def start(update: Update, context: CallbackContext) -> None:
-    await update.message.reply_text("Halo! Selamat datang di bot Hafalan Santri.")
-    await show_menu(update, context)
-
 # Fungsi utama menjalankan bot
 def main():
     if not TOKEN:
@@ -162,13 +164,11 @@ def main():
 
     app = Application.builder().token(TOKEN).build()
 
-    app.add_handler(MessageHandler(filters.TEXT & filters.Regex("^(➕ Tambah Hafalan|✏️ Edit Hafalan|📊 Lihat Data Santri|📅 Hafalan Bulan Lalu|📜 Daftar Santri|🔄 Rekap Otomatis)$"), menu_handler))
+    app.add_handler(MessageHandler(filters.TEXT & filters.Regex("^(➕ Tambah Hafalan|✏️ Edit Hafalan|📊 Lihat Data Santri|📅 Pilih Bulan Hafalan|📜 Daftar Santri|🔄 Rekap Otomatis)$"), menu_handler))
 
     app.add_handler(CommandHandler("start", start))
 
-    app.add_handler(MessageHandler(filters.TEXT & filters.Regex("^TambahHafalan;"), tambah_hafalan))
-
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, lihat_santri))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, lihat_hafalan_bulan))
 
     print("Bot berjalan...")
     app.run_polling()
