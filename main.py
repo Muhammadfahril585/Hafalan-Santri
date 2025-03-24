@@ -168,7 +168,7 @@ def main():
 
     app.add_handler(CommandHandler("start", start))
 
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, lihat_hafalan_bulan))
+    app.add_handler(MessageHandler(filters.TEXT & filters.Regex(r"^[A-Za-z]+ \d{4}$"), lihat_hafalan_bulan))
 
     print("Bot berjalan...")
     app.run_polling()
