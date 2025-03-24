@@ -89,7 +89,10 @@ async def handle_input(update: Update, context: CallbackContext) -> None:
         hasil = cursor.fetchall()
 
         if hasil:
-            data_hafalan = "\n".join([f"Pekan {row[0]}: {row[1]} halaman, Total: {row[2]} juz" for row in hasil])
+            data_hafalan = "\n".join([
+                f"Pekan {row[0]}: {row[1]} halaman, Total: {int(row[2]) if row[2].is_integer() else row[2]} juz"
+                for row in hasil
+            ])
             await update.message.reply_text(f"📅 Hafalan {nama_santri} di {bulan}:\n\n{data_hafalan}")
         else:
             await update.message.reply_text(f"⚠️ Tidak ada data hafalan untuk {nama_santri} di bulan {bulan}.")
@@ -107,7 +110,10 @@ async def handle_input(update: Update, context: CallbackContext) -> None:
         hasil = cursor.fetchall()
 
         if hasil:
-            data_hafalan = "\n".join([f"📅 {row[0]} - Pekan {row[1]}: {row[2]} halaman, Total: {row[3]} juz" for row in hasil])
+            data_hafalan = "\n".join([
+                f"📅 {row[0]} - Pekan {row[1]}: {row[2]} halaman, Total: {int(row[3]) if row[3].is_integer() else row[3]} juz"
+                for row in hasil
+            ])
             await update.message.reply_text(f"📊 Hafalan {nama_santri}:\n\n{data_hafalan}")
         else:
             await update.message.reply_text(f"⚠️ Tidak ada data hafalan untuk {nama_santri}.")
