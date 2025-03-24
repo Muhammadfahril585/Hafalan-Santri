@@ -36,7 +36,7 @@ async def show_menu(update: Update, context: CallbackContext) -> None:
     keyboard = [
         ["➕ Tambah Hafalan", "✏️ Edit Hafalan"],
         ["📊 Lihat Data Santri", "📅 Hafalan Bulan Lalu"],
-        ["🔄 Rekap Otomatis"]
+        ["📜 Daftar Santri", "🔄 Rekap Otomatis"]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text("Pilih menu:", reply_markup=reply_markup)
@@ -68,8 +68,23 @@ async def menu_handler(update: Update, context: CallbackContext) -> None:
                 pesan += f"\n👤 {nama} - Pekan {pekan}\n📖 Hafalan Baru: {hafalan_baru} Halaman\n📚 Total Hafalan: {total_juz_str} Juz\n"
             await update.message.reply_text(pesan)
 
+    elif pesan == "📜 Daftar Santri":
+        await daftar_santri(update, context)
+
     elif pesan == "🔄 Rekap Otomatis":
         await update.message.reply_text("🔄 Setiap laporan baru akan disimpan otomatis sesuai pekan, dan pekan akan reset jika masuk bulan baru.")
+
+# Fungsi untuk menampilkan daftar santri yang sudah memiliki data hafalan
+async def daftar_santri(update: Update, context: CallbackContext) -> None:
+    cursor.execute("SELECT DISTINCT nama FROM santri ORDER BY nama")
+    hasil = cursor.fetchall()
+
+    if not hasil:
+        await update.message.reply_text("⚠️ Belum ada data santri yang tersimpan.")
+        return
+
+    daftar = "\n".join(f"👤 {row[0]}" for row in hasil)
+    await update.message.reply_text(f"📜 Daftar Santri yang Tersimpan:\n\n{daftar}")
 
 # Fungsi untuk menambah hafalan
 async def tambah_hafalan(update: Update, context: CallbackContext) -> None:
@@ -147,16 +162,12 @@ def main():
 
     app = Application.builder().token(TOKEN).build()
 
-    # Handler untuk tombol menu (diprioritaskan lebih dulu)
-    app.add_handler(MessageHandler(filters.TEXT & filters.Regex("^(➕ Tambah Hafalan|✏️ Edit Hafalan|📊 Lihat Data Santri|📅 Hafalan Bulan Lalu|🔄 Rekap Otomatis)$"), menu_handler))
+    app.add_handler(MessageHandler(filters.TEXT & filters.Regex("^(➕ Tambah Hafalan|✏️ Edit Hafalan|📊 Lihat Data Santri|📅 Hafalan Bulan Lalu|📜 Daftar Santri|🔄 Rekap Otomatis)$"), menu_handler))
 
-    # Handler untuk perintah /start
     app.add_handler(CommandHandler("start", start))
 
-    # Handler untuk menambah hafalan
     app.add_handler(MessageHandler(filters.TEXT & filters.Regex("^TambahHafalan;"), tambah_hafalan))
 
-    # Handler untuk melihat data santri
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, lihat_santri))
 
     print("Bot berjalan...")
