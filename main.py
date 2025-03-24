@@ -56,7 +56,8 @@ async def menu_handler(update: Update, context: CallbackContext) -> None:
         await update.message.reply_text("Kirim data dengan format:\nEditHafalan; Nama Santri; Pekan; Hafalan Baru (halaman); Total Hafalan (juz)")
 
     elif pesan == "📊 Lihat Data Santri":
-        await update.message.reply_text("Ketik nama santri untuk melihat data hafalannya.")
+        await update.message.reply_text("Silakan masukkan nama santri:")
+        context.user_data["mode"] = "lihat_santri"
 
     elif pesan == "📅 Pilih Bulan Hafalan":
         await update.message.reply_text("Ketik nama bulan dan tahun (misal: Januari 2025) untuk melihat data hafalan.")
@@ -96,6 +97,23 @@ async def handle_input(update: Update, context: CallbackContext) -> None:
         # Reset mode agar tidak terjadi kesalahan input berikutnya
         context.user_data.pop("mode", None)
         context.user_data.pop("bulan_hafalan", None)
+        return
+
+    # Jika user memilih "📊 Lihat Data Santri" lalu mengetik nama santri
+    if "mode" in context.user_data and context.user_data["mode"] == "lihat_santri":
+        nama_santri = pesan
+
+        cursor.execute("SELECT bulan, pekan, hafalan_baru, total_juz FROM santri WHERE nama=? ORDER BY bulan, pekan", (nama_santri,))
+        hasil = cursor.fetchall()
+
+        if hasil:
+            data_hafalan = "\n".join([f"📅 {row[0]} - Pekan {row[1]}: {row[2]} halaman, Total: {row[3]} juz" for row in hasil])
+            await update.message.reply_text(f"📊 Hafalan {nama_santri}:\n\n{data_hafalan}")
+        else:
+            await update.message.reply_text(f"⚠️ Tidak ada data hafalan untuk {nama_santri}.")
+
+        # Reset mode agar tidak terjadi kesalahan input berikutnya
+        context.user_data.pop("mode", None)
         return
 
 # Fungsi untuk menampilkan daftar santri yang sudah memiliki data hafalan
