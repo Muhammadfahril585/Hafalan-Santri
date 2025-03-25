@@ -172,8 +172,8 @@ async def rekap_otomatis(update: Update, context: CallbackContext, bulan, nama_s
 def main():
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_handler))  # Menangani tombol menu
-    app.add_handler(MessageHandler(filters.TEXT, handle_input))  # Menangani input teks biasa
+    app.add_handler(MessageHandler(filters.TEXT, handle_input))  # Tangani input teks biasa lebih dulu
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_handler))  # Tangani tombol menu setelahnya
     print("Bot berjalan...")
     app.run_polling()
 
