@@ -4,8 +4,12 @@ from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 import sqlite3
 from datetime import datetime
 
-TOKEN = "YOUR_BOT_TOKEN"  # Ganti dengan token bot Anda
+TOKEN = os.getenv("BOT_TOKEN")  # Ambil token dari Environment Variables
 bot = telebot.TeleBot(TOKEN)
+
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    bot.reply_to(message, "Halo! Ini adalah bot hafalan santri.")
 
 # Fungsi untuk membuat database jika belum ada
 def init_db():
