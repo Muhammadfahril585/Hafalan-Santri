@@ -182,5 +182,4 @@ app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_input))
     app.run_polling()
 
 if __name__ == "__main__":
-    keep_alive()
     main()
