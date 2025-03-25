@@ -171,9 +171,13 @@ async def rekap_otomatis(update: Update, context: CallbackContext, bulan, nama_s
 # Fungsi utama menjalankan bot
 def main():
     app = Application.builder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT, handle_input))  # Tangani input teks biasa lebih dulu
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_handler))  # Tangani tombol menu setelahnya
+app.add_handler(CommandHandler("start", start))
+
+# Handler tombol menu (hanya untuk tombol)
+app.add_handler(MessageHandler(filters.Regex("^(➕ Tambah Hafalan|✏️ Edit Hafalan|📊 Lihat Data Santri|📅 Pilih Bulan Hafalan|📜 Daftar Santri|🔄 Rekap Otomatis)$"), menu_handler))
+
+# Handler input teks biasa
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_input))
     print("Bot berjalan...")
     app.run_polling()
 
