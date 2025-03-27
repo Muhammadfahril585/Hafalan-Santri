@@ -1,5 +1,5 @@
 
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from threading import Thread
 import os
 import sqlite3
@@ -100,12 +100,24 @@ app_telegram = Application.builder().token(TOKEN).build()
 app_telegram.add_handler(CommandHandler("start", start))
 app_telegram.add_handler(MessageHandler(filters.TEXT, handle_message))
 
-# Fungsi untuk menangani webhook dari Telegram
+# Fungsi untuk menangani webhook dari Telegram dengan debug log
 @app.route(f"/{TOKEN}", methods=["POST"])
 def webhook():
-    update = Update.de_json(request.get_json(), app_telegram.bot)
-    asyncio.run(app_telegram.process_update(update))
-    return "OK", 200
+    try:
+        data = request.get_json()
+        print("📩 Update diterima:", data)  # Debugging
+
+        if not data:
+            print("⚠️ Tidak ada data yang diterima!")
+            return jsonify({"status": "error", "message": "No data received"}), 400
+
+        update = Update.de_json(data, app_telegram.bot)
+        asyncio.run(app_telegram.process_update(update))
+    
+        return jsonify({"status": "success"}), 200  # Response JSON
+    except Exception as e:
+        print("❌ Error di webhook:", str(e))  # Cetak error ke log
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # Fungsi menjalankan Flask di thread terpisah
 def run():
@@ -118,7 +130,7 @@ def keep_alive():
 # Fungsi utama untuk mengatur webhook
 async def set_webhook():
     await app_telegram.bot.set_webhook(f"{WEBHOOK_URL}/{TOKEN}")
-    print("Webhook telah diatur!")
+    print("✅ Webhook telah diatur!")
 
 if __name__ == "__main__":
     keep_alive()  # Menjaga Flask tetap berjalan
