@@ -37,6 +37,7 @@ def menu_keyboard():
     markup.add(KeyboardButton("📊 Data Hafalan Santri"))
     markup.add(KeyboardButton("📅 Lihat Hafalan Berdasarkan Bulan"))
     markup.add(KeyboardButton("📜 Daftar Nama Santri"))
+    markup.add(keyboardButton("🖊️ Edit Data Hafalan"))
     return markup
 
 # Fungsi untuk menambah hafalan santri
