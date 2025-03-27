@@ -4,11 +4,12 @@ from threading import Thread
 import os
 import sqlite3
 import datetime
+import asyncio
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 
 TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "")  # Isi dengan URL webhook kamu
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "")
 
 app = Flask(__name__)
 conn = sqlite3.connect("hafalan.db", check_same_thread=False)
@@ -101,9 +102,9 @@ app_telegram.add_handler(MessageHandler(filters.TEXT, handle_message))
 
 # Fungsi untuk menangani webhook dari Telegram
 @app.route(f"/{TOKEN}", methods=["POST"])
-def webhook():
+async def webhook():
     update = Update.de_json(request.get_json(), app_telegram.bot)
-    app_telegram.process_update(update)
+    await app_telegram.process_update(update)
     return "OK", 200
 
 # Fungsi menjaga server tetap berjalan
@@ -121,8 +122,10 @@ async def set_webhook():
 
 if __name__ == "__main__":
     keep_alive()
-    app_telegram.run_webhook(
-        listen="0.0.0.0",
-        port=8080,
-        webhook_url=f"{WEBHOOK_URL}/{TOKEN}"
-          )
+    
+    # Gunakan asyncio untuk menjalankan webhook dan bot
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(set_webhook())
+    
+    # Menjalankan aplikasi Flask
+    run()
