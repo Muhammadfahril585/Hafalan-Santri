@@ -102,12 +102,12 @@ app_telegram.add_handler(MessageHandler(filters.TEXT, handle_message))
 
 # Fungsi untuk menangani webhook dari Telegram
 @app.route(f"/{TOKEN}", methods=["POST"])
-async def webhook():
+def webhook():
     update = Update.de_json(request.get_json(), app_telegram.bot)
-    await app_telegram.process_update(update)
+    asyncio.run(app_telegram.process_update(update))
     return "OK", 200
 
-# Fungsi menjaga server tetap berjalan
+# Fungsi menjalankan Flask di thread terpisah
 def run():
     app.run(host="0.0.0.0", port=8080)
 
@@ -121,11 +121,7 @@ async def set_webhook():
     print("Webhook telah diatur!")
 
 if __name__ == "__main__":
-    keep_alive()
-    
-    # Gunakan asyncio untuk menjalankan webhook dan bot
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(set_webhook())
-    
-    # Menjalankan aplikasi Flask
-    run()
+    keep_alive()  # Menjaga Flask tetap berjalan
+
+    # Gunakan event loop baru untuk mengatur webhook
+    asyncio.run(set_webhook())
