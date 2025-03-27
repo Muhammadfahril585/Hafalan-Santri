@@ -4,15 +4,18 @@ import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 import sqlite3
 from datetime import datetime
+from flask import Flask, request
 
 # Ambil token dari Environment Variables
 TOKEN = os.getenv("BOT_TOKEN")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # URL dari Render untuk webhook
 
 # Pastikan token tidak kosong
-if not TOKEN:
-    raise ValueError("❌ BOT_TOKEN tidak ditemukan. Pastikan sudah diset di environment variable.")
+if not TOKEN or not WEBHOOK_URL:
+    raise ValueError("❌ BOT_TOKEN atau WEBHOOK_URL tidak ditemukan. Pastikan sudah diset di environment variable.")
 
 bot = telebot.TeleBot(TOKEN)
+app = Flask(__name__)
 
 # Fungsi untuk membuat database jika belum ada
 def init_db():
@@ -134,7 +137,20 @@ def handle_hafalan_input(message):
     except ValueError:
         bot.send_message(chat_id, "❌ Format salah! Periksa kembali input Anda.\nGunakan format yang benar, misalnya:\n*Ahmad - 5 - 2 - 3*", parse_mode="Markdown")
 
-# Menjalankan bot
+# Webhook Endpoint
+@app.route('/' + TOKEN, methods=['POST'])
+def webhook():
+    json_str = request.get_data().decode('UTF-8')
+    update = telebot.types.Update.de_json(json_str)
+    bot.process_new_updates([update])
+    return 'OK', 200
+
+@app.route("/", methods=['GET'])
+def index():
+    return "Bot is running!", 200
+
 if __name__ == "__main__":
     init_db()  # Inisialisasi database
-    bot.polling()
+    bot.remove_webhook()
+    bot.set_webhook(url=f"{WEBHOOK_URL}/{TOKEN}")
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
